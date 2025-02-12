@@ -83,7 +83,8 @@ class _MyAppState extends State<MyApp> {
         setState(() {
           _qrcodeFile = path;
         });
-        decodeQR(path).then((data) => setState(() => _data = data ?? 'Decode is failed'));
+        decodeQR(path)
+            .then((data) => setState(() => _data = data ?? 'Decode is failed'));
       } else {
         setState(() {
           _data = 'Failed to load this file';
@@ -94,5 +95,6 @@ class _MyAppState extends State<MyApp> {
 
   Future<String?> decodeQR(String filePath) {
     return QrCodeToolsPlugin.decodeFrom(filePath);
+    // return '';
   }
 }
