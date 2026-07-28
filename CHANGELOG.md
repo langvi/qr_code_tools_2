@@ -1,3 +1,7 @@
+## 0.1.1
+
+* Fix(android): downsample bitmaps with `BitmapFactory.Options.inSampleSize` before decoding, instead of loading images at full resolution. Addresses a Play Store memory-usage warning for `QrCodeToolsPlugin.onMethodCall`.
+
 ## 0.1.0
 
 * Update Flutter SDK to 3.0.+

@@ -1,5 +1,6 @@
 package com.aifeii.qrcode.tools
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.annotation.NonNull
 import com.google.zxing.*
@@ -36,14 +37,18 @@ class QrCodeToolsPlugin : FlutterPlugin, MethodCallHandler {
                 return
             }
 
-            val fis = FileInputStream(file)
-            val bitmap = BitmapFactory.decodeStream(fis)
+            val bitmap = decodeSampledBitmap(file, MAX_DECODE_DIMENSION, MAX_DECODE_DIMENSION)
+            if (bitmap == null) {
+                result.error("Unable to decode image. filePath: $filePath", null, null)
+                return
+            }
 
             val w = bitmap.width
             val h = bitmap.height
             val pixels = IntArray(w * h)
             bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
-            val source = RGBLuminanceSource(bitmap.width, bitmap.height, pixels)
+            bitmap.recycle()
+            val source = RGBLuminanceSource(w, h, pixels)
             val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
 
             val hints = Hashtable<DecodeHintType, Any>()
@@ -66,6 +71,44 @@ class QrCodeToolsPlugin : FlutterPlugin, MethodCallHandler {
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+    }
+
+    /**
+     * Decodes [file] into a Bitmap downsampled so neither dimension exceeds [reqWidth] x
+     * [reqHeight], avoiding loading the image at full resolution into memory.
+     */
+    private fun decodeSampledBitmap(file: File, reqWidth: Int, reqHeight: Int): Bitmap? {
+        val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        FileInputStream(file).use { BitmapFactory.decodeStream(it, null, boundsOptions) }
+
+        val decodeOptions = BitmapFactory.Options().apply {
+            inSampleSize = calculateInSampleSize(boundsOptions, reqWidth, reqHeight)
+        }
+        return FileInputStream(file).use { BitmapFactory.decodeStream(it, null, decodeOptions) }
+    }
+
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val height = options.outHeight
+        val width = options.outWidth
+        var inSampleSize = 1
+
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight = height / 2
+            val halfWidth = width / 2
+
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+
+        return inSampleSize
+    }
+
+    companion object {
+        // QR codes decode reliably well below full camera/gallery resolution; capping the
+        // decoded bitmap here keeps memory usage bounded (per the BitmapFactory.Options
+        // guidance) without hurting decode accuracy.
+        private const val MAX_DECODE_DIMENSION = 1920
     }
 
 }
